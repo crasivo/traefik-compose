@@ -1,0 +1,15 @@
+# Hidden
+/backup*
+/dump*
+/log*
+/secret*
+/volume*
+
+# Configs
+/docker-compose.yml
+/podman-compose.yml
+
+# Misc
+.DS_Store
+.env
+Thumbs.db

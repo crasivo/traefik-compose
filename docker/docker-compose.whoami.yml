@@ -1,0 +1,34 @@
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Example configuration for Whoami service.
+# ----------------------------------------------------------------
+# $ docker network create -d bridge traefik_public
+# $ docker compose -f docker-compose.whoami.yml up -d
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+name: traefik_whoami
+
+services:
+  whoami:
+    image: traefik/whoami
+    container_name: traefik_whoami
+    restart: unless-stopped
+    networks:
+      - public
+    labels:
+      - "traefik.enable=true"
+      # HTTP (redirect)
+      - "traefik.http.routers.traefik-whoami-http.rule=(Host(`${TRAEFIK_API_HOST:-traefik.local}`)||Host(`localhost`))&&Path(`/whoami`)"
+      - "traefik.http.routers.traefik-whoami-http.entryPoints=http"
+      - "traefik.http.routers.traefik-whoami-http.middlewares=redirect-to-https@file"
+      # HTTPS
+      - "traefik.http.routers.traefik-whoami-https.rule=(Host(`${TRAEFIK_API_HOST:-traefik.local}`)||Host(`localhost`))&&Path(`/whoami`)"
+      - "traefik.http.routers.traefik-whoami-https.entryPoints=https"
+      - "traefik.http.routers.traefik-whoami-https.tls=true"
+      - "traefik.http.routers.traefik-whoami-https.service=traefik-whoami-https"
+      - "traefik.http.services.traefik-whoami-https.loadBalancer.server.port=80"
+
+networks:
+  public:
+    driver: bridge
+    external: true
+    name: traefik_public
