@@ -56,7 +56,7 @@ List of pre-installed certificates:
 - `Traefik Local` — wildcard certificate for all service domains `traefik.local` and `*.traefik.local`
 - `Traefik Default` — universal, for other cases _(without host)_
 
-> [!NOTICE]
+> [!IMPORTANT]
 > The last certificate is used by default, for example, when it was not possible to match the domain name (host-cert).
 > Let me remind you that no application or client will consider it 100% valid (trusted).
 
@@ -133,7 +133,7 @@ Below is an example of registering mappings between local domains and IP _(127.0
 127.0.0.1 custom.docker
 ```
 
-> [!NOTICE]
+> [!NOTE]
 > I repeat, this method is NOT the best.
 > This is the easiest solution without installing and configuring additional packages.
 
