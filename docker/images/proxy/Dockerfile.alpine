@@ -1,0 +1,79 @@
+# ==============================================================================
+# Base Image:   alpine:${ALPINE_VERSION} & traefik:${TRAEFIK_VERSION}
+# Description:  A hardened, rootless Traefik container built on top of Alpine
+#               Linux. Includes automated entrypoint bootstrapping for environment
+#               variable interpolation into YAML configs and dynamic self-signed
+#               local PKI/Wildcard certificate generation via OpenSSL.
+#
+# GitHub:       https://github.com/crasivo/traefik-compose
+# Docker Hub:   https://hub.docker.com/r/crasivo/traefik
+# ==============================================================================
+
+# Global scope ARGs to be used across multiple stages
+ARG ALPINE_VERSION=latest
+ARG TRAEFIK_VERSION
+
+# --- Stage 1: Proxy stage to allow variable expansion in COPY --from ---
+FROM docker.io/traefik:${TRAEFIK_VERSION} AS source
+
+# --- Stage 2: Base OS runtime setup ---
+FROM docker.io/alpine:${ALPINE_VERSION} AS base
+
+ARG TRAEFIK_GID=1000
+ARG TRAEFIK_UID=1000
+
+RUN set -eux \
+    # Install minimal runtime dependencies \
+    && apk add --no-cache \
+        ca-certificates \
+        openssl \
+        sed \
+    # Create system user and group without home directory \
+    && addgroup -g ${TRAEFIK_GID} traefik \
+    && adduser -D -H -s /bin/sh -G traefik -u ${TRAEFIK_UID} traefik \
+    # Clean package manager cache \
+    && rm -rf /var/cache/apk/*
+
+# --- Stage 3: Final assembly ---
+FROM base
+
+ARG TRAEFIK_VERSION
+
+# Copy Traefik binary and automated configuration files
+COPY --from=source --chown=traefik:traefik /usr/local/bin/traefik /usr/local/bin/traefik
+COPY --chown=traefik:traefik ./images/proxy/install/ /opt/docker/
+
+ENV TRAEFIK_API_DASHBOARD=true \
+    TRAEFIK_API_DEBUG=true \
+    TRAEFIK_API_INSECURE=true \
+    TRAEFIK_LOG_FORMAT=common \
+    TRAEFIK_LOG_LEVEL=info \
+    TRAEFIK_PROVIDERS_DOCKER_ENDPOINT="unix:///var/run/docker.sock" \
+    TRAEFIK_PROVIDERS_DOCKER_NETWORK=traefik_public \
+    VIRTUAL_HOST=localhost
+
+RUN set -eux \
+    # Temporarily install libcap to assign network privileges to the binary \
+    && apk add --no-cache --virtual .build-deps libcap \
+    && setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik \
+    && apk del .build-deps \
+    # Prepare and configure file permissions for layout paths \
+    && mkdir -p /etc/traefik/conf.d /opt/docker/share/openssl \
+    && cp -f /opt/docker/etc/traefik/traefik.yml /etc/traefik/traefik.yml \
+    && cp -r /opt/docker/etc/traefik/conf.d/ /etc/traefik/conf.d/ \
+    && chown -R traefik:traefik /etc/traefik /opt/docker \
+    # Configure initialization entrypoint script routines \
+    && mkdir -p /docker-entrypoint.d \
+    && chmod +x /opt/docker/bin/*.sh \
+    && ln -sf /opt/docker/bin/docker-entrypoint.sh /docker-entrypoint.sh \
+    # Maintain sequence: bootstrap macro replacement must run before certificate generation \
+    && ln -sf /opt/docker/bin/traefik-bootstrap.sh /docker-entrypoint.d/10-traefik-bootstrap.sh \
+    && ln -sf /opt/docker/bin/openssl-generate.sh /docker-entrypoint.d/20-openssl-generate.sh
+
+EXPOSE 80 443 8080
+
+VOLUME ["/etc/traefik", "/opt/docker/share/openssl"]
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["traefik"]

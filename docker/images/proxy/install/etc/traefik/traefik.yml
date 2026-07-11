@@ -1,0 +1,72 @@
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Production-ready template configuration for Traefik v3.x
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# ----------------------------------------------------------------
+# Global
+# ----------------------------------------------------------------
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# ----------------------------------------------------------------
+# Entrypoints
+# ----------------------------------------------------------------
+
+entryPoints:
+  http:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: https
+          scheme: https
+  https:
+    address: ":443"
+    http3: {}
+  traefik:
+    address: ":8080"
+
+# ----------------------------------------------------------------
+# API & Dashboard
+# ----------------------------------------------------------------
+
+api:
+  dashboard: %TRAEFIK_API_DASHBOARD%
+  debug: %TRAEFIK_API_DEBUG%
+  insecure: %TRAEFIK_API_INSECURE%
+
+ping:
+  entryPoint: traefik
+
+# ----------------------------------------------------------------
+# Logging (Системный журнал)
+# ----------------------------------------------------------------
+
+log:
+  filePath: /dev/stdout
+  format: "%TRAEFIK_LOG_FORMAT%"
+  level: "%TRAEFIK_LOG_LEVEL%"
+
+# ----------------------------------------------------------------
+# Global Transport (Опции для работы со сторонними бэкендами)
+# ----------------------------------------------------------------
+
+serversTransport:
+  insecureSkipVerify: true
+
+# ----------------------------------------------------------------
+# Providers
+# ----------------------------------------------------------------
+
+providers:
+  providersThrottleDuration: 10s
+  file:
+    directory: /etc/traefik/conf.d
+    watch: true
+  docker:
+    watch: true
+    endpoint: "%TRAEFIK_PROVIDERS_DOCKER_ENDPOINT%"
+    exposedByDefault: false
+    network: "%TRAEFIK_PROVIDERS_DOCKER_NETWORK%"
