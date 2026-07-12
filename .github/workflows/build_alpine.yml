@@ -1,3 +1,13 @@
+# ==============================================================================
+# Workflow:      Build Alpine
+# Description:   Automated multi-platform compilation pipeline for a hardened,
+#                rootless Traefik image built on Alpine Linux.
+# ------------------------------------------------------------------------------
+# Platforms:     linux/386, linux/amd64, linux/arm/v6, linux/arm/v7, linux/arm64,
+#                linux/ppc64le, linux/riscv64, linux/s390x
+# Targets:       Docker Hub & GitHub Container Registry (GHCR)
+# ==============================================================================
+
 name: Build Alpine
 
 on:
@@ -148,7 +158,15 @@ jobs:
           context: ./docker/
           file: ./docker/images/proxy/Dockerfile.alpine
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: |
+            linux/386
+            linux/amd64
+            linux/arm/v6
+            linux/arm/v7
+            linux/arm64
+            linux/ppc64le
+            linux/riscv64
+            linux/s390x
           build-args: |
             TRAEFIK_VERSION=${{ env.TRAEFIK_FULL_VERSION }}
             ALPINE_VERSION=${{ env.ALPINE_FULL_VERSION }}
