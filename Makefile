@@ -18,7 +18,7 @@ _docker_check_volumes:
 	mkdir -p ./docker/volumes/traefik_config || true
 	mkdir -p ./docker/volumes/traefik_certs || true
 _docker_check_yaml:
-	if [ ! -f ./docker/docker-compose.yml ]; then cp -f ./docker/docker-compose.socker-root.yml ./docker/docker-compose.yml; fi
+	if [ ! -f ./docker/docker-compose.yml ]; then cp -f ./docker/docker-compose.socket-root.yml ./docker/docker-compose.yml; fi
 _docker_check: \
 	_docker_check_volumes \
 	_docker_check_yaml

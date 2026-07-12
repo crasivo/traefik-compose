@@ -11,7 +11,7 @@
 
 # Global scope ARGs to be used across multiple stages
 ARG ALPINE_VERSION=latest
-ARG TRAEFIK_VERSION
+ARG TRAEFIK_VERSION=latest
 
 # --- Stage 1: Proxy stage to allow variable expansion in COPY --from ---
 FROM docker.io/traefik:$TRAEFIK_VERSION AS source
