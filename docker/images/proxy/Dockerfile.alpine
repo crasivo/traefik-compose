@@ -15,6 +15,8 @@ ARG ALPINE_VERSION
 FROM docker.io/alpine:$ALPINE_VERSION AS base
 
 ARG TARGETARCH
+ARG TARGETOS
+ARG TARGETVARIANT
 ARG TRAEFIK_GID=1000
 ARG TRAEFIK_UID=1000
 ARG TRAEFIK_VERSION
@@ -29,8 +31,14 @@ RUN set -eux \
     # Create system user and group without home directory \
     && addgroup -g ${TRAEFIK_GID} traefik \
     && adduser -D -H -s /bin/sh -G traefik -u ${TRAEFIK_UID} traefik \
-    # Downloading Traefik (from official repo) \
-    && curl -sSL "https://github.com/traefik/traefik/releases/download/v${TRAEFIK_VERSION}/traefik_v${TRAEFIK_VERSION}_linux_${TARGETARCH}.tar.gz" \
+    # Normalize architecture naming to match official Traefik release artifacts \
+    && if [ "$TARGETARCH" = "arm" ]; then \
+        TRAEFIK_ARCH="${TARGETARCH}${TARGETVARIANT}"; \
+       else \
+        TRAEFIK_ARCH="${TARGETARCH}"; \
+       fi \
+    # Downloading Traefik binary dynamically via stream pipeline \
+    && curl -sSL "https://github.com/traefik/traefik/releases/download/v${TRAEFIK_VERSION}/traefik_v${TRAEFIK_VERSION}_${TARGETOS}_${TRAEFIK_ARCH}.tar.gz" \
        | tar -xz -C /usr/local/bin/ traefik \
     && chown traefik:traefik /usr/local/bin/traefik \
     && chmod +x /usr/local/bin/traefik \
