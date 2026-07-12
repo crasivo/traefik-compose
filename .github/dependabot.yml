@@ -1,0 +1,13 @@
+# ==============================================================================
+# Configuration: Dependabot Automated Dependency Updates
+# Description:   Enables weekly tracking and automated Pull Requests for
+#                GitHub Actions workflow dependencies inside this repository.
+# ==============================================================================
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-requests-limit: 5
