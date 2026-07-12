@@ -1,2 +1,18 @@
-.*
+# Hidden
+/backup*
+/dump*
+/log*
+/secret*
+/volume*
+
+# Secrets
+*.crt
+*.key
+*.pem
+
+# Configs
+docker-compose.yml
+Dockerfile
+
+# Docs
 *.md

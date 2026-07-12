@@ -1,0 +1,58 @@
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Example configuration for Traefik v3
+# ----------------------------------------------------------------
+# Example commands:
+# $ docker network create -d bridge traefik_public
+# $ docker compose -f docker-compose.socket-root.yml up -d
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+name: traefik
+
+services:
+  traefik:
+    build:
+      context: .
+      dockerfile: images/proxy/Dockerfile.alpine
+    image: crasivo/traefik:latest
+    container_name: traefik
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: 1G
+    environment:
+      - "TRAEFIK_PROVIDERS_DOCKER_ENDPOINT=/var/run/docker.sock"
+      - "TRAEFIK_PROVIDERS_DOCKER_NETWORK=${TRAEFIK_PUBLIC_NETWORK:-traefik_public}"
+      - "VIRTUAL_HOST=${TRAEFIK_PUBLIC_HOST:-traefik.docker}"
+    user: traefik
+    hostname: "${TRAEFIK_PUBLIC_HOST:-traefik.docker}"
+    networks:
+      public:
+        aliases:
+          - "${TRAEFIK_PUBLIC_HOST:-traefik.docker}"
+    ports:
+      - "80:80"   # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      - ./volumes/traefik_config:/etc/traefik
+      - ./volumes/traefik_certs:/opt/docker/share/openssl
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: [ "CMD", "/usr/local/bin/traefik", "healthcheck", "--ping" ]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      # Route: HTTPS
+      - "traefik.http.routers.traefik-api-https.rule=Host(`${TRAEFIK_PUBLIC_HOST:-traefik.docker}`)"
+      - "traefik.http.routers.traefik-api-https.entryPoints=https"
+      - "traefik.http.routers.traefik-api-https.tls=true"
+      - "traefik.http.routers.traefik-api-https.service=api@internal"
+
+networks:
+  public:
+    external: true
+    name: "${TRAEFIK_PUBLIC_NETWORK:-traefik_public}"

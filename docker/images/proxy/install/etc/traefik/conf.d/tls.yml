@@ -1,0 +1,14 @@
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+  certificates:
+    - certFile: "/opt/docker/share/openssl/localhost/certificate_fullchain.pem"
+      keyFile: "/opt/docker/share/openssl/localhost/private_key.pem"
+    - certFile: "/opt/docker/share/openssl/traefik.docker/certificate_fullchain.pem"
+      keyFile: "/opt/docker/share/openssl/traefik.docker/private_key.pem"
+  stores:
+    default:
+      defaultCertificate:
+        certFile: "/opt/docker/share/openssl/default/certificate_fullchain.pem"
+        keyFile: "/opt/docker/share/openssl/default/private_key.pem"

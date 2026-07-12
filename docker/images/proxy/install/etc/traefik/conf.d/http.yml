@@ -1,0 +1,25 @@
+http:
+  middlewares:
+    security-headers:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: none,noarchive,nosnippet,notranslate,noimageindex
+          server: ''
+          X-Forwarded-Proto: https
+        sslProxyHeaders:
+          X-Forwarded-Proto: https
+        referrerPolicy: strict-origin-when-cross-origin
+        hostsProxyHeaders:
+          - X-Forwarded-Host
+        customRequestHeaders:
+          X-Forwarded-Proto: https
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 63072000
+        stsPreload: true
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true

@@ -1,0 +1,99 @@
+[ req ]
+default_bits        = 4096
+default_md          = sha512
+distinguished_name  = req_distinguished_name
+policy              = policy_anything
+encrypt_key         = no
+req_extensions      = v3_req
+x509_extensions     = v3_ca
+
+[ req_distinguished_name ]
+countryName                     = Country Name (2 letter code)
+countryName_default             = US
+countryName_min                 = 2
+countryName_max                 = 2
+stateOrProvinceName             = State or Province Name (full name)
+stateOrProvinceName_default     = California
+countryName_min                 = 2
+countryName_max                 = 64
+localityName                    = Locality Name (eg, city)
+localityName_min                = 2
+organizationName                = Organization Name (eg, company)
+organizationalUnitName          = Organizational Unit Name (eg, section)
+commonName                      = Common Name (eg, your name or your server\'s hostname)
+commonName_max                  = 128
+emailAddress                    = Email Address
+emailAddress_max                = 128
+
+[ policy_anything ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ v3_ca ]
+basicConstraints        = critical, CA:TRUE, pathlen:0
+keyUsage                = critical, any
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always, issuer
+keyUsage                = digitalSignature, keyEncipherment, cRLSign, keyCertSign
+extendedKeyUsage        = serverAuth
+
+[ v3_req ]
+basicConstraints        = CA:FALSE
+keyUsage                = critical, digitalSignature, keyEncipherment
+
+# ----------------------------------------------------------------
+# Localhost
+# ----------------------------------------------------------------
+
+[ localhost_cert ]
+basicConstraints        = CA:FALSE
+nsCertType              = server
+nsComment               = "OpenSSL Generated Certificate"
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always
+keyUsage                = critical, digitalSignature, keyEncipherment
+extendedKeyUsage        = serverAuth
+subjectAltName          = @localhost_local_alt_names
+
+[ localhost_local_alt_names ]
+DNS.1 = localhost
+IP.1  = 127.0.0.1
+IP.2  = ::1
+
+# ----------------------------------------------------------------
+# Server
+# ----------------------------------------------------------------
+
+[ server_default_cert ]
+basicConstraints        = CA:FALSE
+nsCertType              = server
+nsComment               = "OpenSSL Generated Certificate"
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always
+keyUsage                = critical, digitalSignature, keyEncipherment
+extendedKeyUsage        = serverAuth
+
+# ----------------------------------------------------------------
+# Example domain
+# ----------------------------------------------------------------
+
+[ example_local_cert ]
+basicConstraints        = CA:FALSE
+nsCertType              = server
+nsComment               = "OpenSSL Generated Certificate"
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always
+keyUsage                = critical, digitalSignature
+extendedKeyUsage        = serverAuth
+subjectAltName          = @example_local_alt_names
+
+[ example_local_alt_names ]
+DNS.1 = example.local
+DNS.2 = *.example.local
+IP.1  = 127.0.0.1
+IP.2  = ::1

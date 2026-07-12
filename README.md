@@ -1,13 +1,40 @@
 🚢 Traefik Compose
 ===
 
-Ready-made assembly of [Traefik Proxy](https://traefik.io/traefik) for developing Web applications in a Docker/Podman environment.
+A production-ready, security-hardened [Traefik Proxy](https://traefik.io/traefik) stack tailored for local development and web
+application deployment in Docker and Podman environments.
+
+This stack is powered by a **hardened, rootless Alpine Linux base image** featuring automated local PKI/OpenSSL generation and
+built-in configuration macro bootstrapping.
+
+---
+
+## 🛠 Deployment Options & Network Modes
+
+Depending on your infrastructure security constraints and container daemon setup, the repository natively supports **4
+architectural running modes**:
+
+1. **TCP Rootless (`docker-compose.tcp-rootless.yml`)** — *Default Mode*. Maximum isolation: the container runs under the
+   unprivileged `traefik` user (UID 1000) and communicates with the Docker API over the network via TCP port `2375`, removing any
+   need for mounting raw socket files.
+2. **TCP Root (`docker-compose.tcp-root.yml`)** — The container runs as `root` but maintains strict filesystem isolation from the
+   host by communicating exclusively via TCP.
+3. **Socket Rootless (`docker-compose.socket-rootless.yml`)** — A secure setup that forwards the host's unprivileged user-space
+   UNIX socket (`/run/user/1000/docker.sock`).
+4. **Socket Root (`docker-compose.socket-root.yml`)** — The classical approach mounting the standard host `/var/run/docker.sock`
+   path.
+
+> 💡 *For a comprehensive technical breakdown of each mode, Podman compatibility tricks, and mandatory Systemd/Firewall host
+adjustments for TCP setups, check out the dedicated documentation: [**docker/README.md**](docker/README.md).*
+
+---
 
 ## 🚀 Quick Start
 
-First of all, you need to create a public _(external)_ network for Traefik.
-Below is an example command to create a public (external) network `traefik_public`.
-You can specify any name and IP address subnet.
+### Step 1: Provision the External Network
+
+To allow your application containers to securely communicate with the proxy, you must first provision a shared external bridge
+network named `traefik_public`:
 
 ```shell
 $ docker network create \
@@ -18,93 +45,103 @@ $ docker network create \
   traefik_public
 ```
 
-Also, for the service to work correctly, open ports `80` and `443` are required.
-If you have another web server (nginx/apache/caddy) running that may be using them, you need to turn it off.
+Additionally, ensure that ports `80` and `443` are free on your host system (stop any local instances of Nginx, Apache, or Caddy).
 
-Example command to start the service:
+### Step 2: Choose a Mode and Boot the Stack
+
+Navigate to the `docker/` directory, create a symbolic link targeting your desired configuration, and spin up the container:
 
 ```shell
-$ cp -f ./docker-compose.example.yml ./docker-compose.yml
-$ docker compose up -d
+$ cd docker
+
+# Select your preferred layout (e.g., tcp-rootless)
+$ ln -sf docker-compose.tcp-rootless.yml docker-compose.yml
+
+# Build and start the stack
+$ docker compose up -d --build
 ```
 
-After successful startup and initialization, you can go to the control panel at one of the URLs:
+Once up and running, the Traefik API/Dashboard will become available at:
 
-- http://localhost _(without DNS)_
-- http://traefik.docker
+* http://localhost *(Direct access without DNS mapping)*
+* http://traefik.docker *(Requires DNS/hosts mapping)*
 
-## 🕹️ Operation
+---
 
-If you are using Traefik for the first time, it is recommended that you study the [official documentation](https://doc.traefik.io/traefik/master/expose/docker/) before starting work.
-This section is intended for experienced users and describes some features of working with the service.
+## 🕹️ Operations Guide
 
-### 🔐 SSL certificates
+If you are new to Traefik, it is highly recommended to look over
+the [official Traefik Docker Provider documentation](https://doc.traefik.io/traefik/master/expose/docker/) first.
 
-For secure HTTPS/SSL connections, Traefik uses its own `Default` certificate,
-which is not related to the domain in any way (one for all).
-This can be a problem, because most applications during the initialization of a secure connection check for properties such as "issued by" and "issued to".
-All universal (without a domain) and unknown certificates are immediately blocked (red flag) at the system or client level.
+### 🔐 SSL Certificates (Local PKI)
 
-For such cases, the assembly already contains several pre-generated (self-signed) SSL certificates,
-which are great for <u>local development</u>.
+This stack completely discards Traefik's standard default fallback certificates. Instead, every time the container starts up, the
+custom macro-script `openssl-generate.sh` is automatically executed within the `ENTRYPOINT` pipeline.
 
-List of pre-installed certificates:
+This script spins up a full-fledged local Public Key Infrastructure (PKI) and generates valid SSL certificates on the fly for the
+following targets:
 
-- `Localhost` — a simple certificate for the local domain `localhost`
-- `Traefik Internal` — wildcard certificate for all service domains `traefik.internal` and `*.traefik.internal`
-- `Traefik Docker` — wildcard certificate for all service domains `traefik.docker` and `*.traefik.docker`
-- `Traefik Local` — wildcard certificate for all service domains `traefik.local` and `*.traefik.local`
-- `Traefik Default` — universal, for other cases _(without host)_
+* **Crasivo Root CA** — Your own private trusted Root Certificate Authority (the generator of the trust chain).
+* **Localhost** — Covering the standalone `localhost` domain.
+* **Default / Fallback** — A global universal fallback certificate for incoming requests matching no specific host.
+* **Dynamic Host** — A dedicated wildcard certificate automatically provisioned for the domain name passed via the `VIRTUAL_HOST`
+  environment variable (defaults to `*.traefik.docker`).
 
-> [!IMPORTANT]
-> The last certificate is used by default, for example, when it was not possible to match the domain name (host-cert).
-> Let me remind you that no application or client will consider it 100% valid (trusted).
+#### 📥 How to Retrieve and Trust the Root Certificate
 
-For correct operation of HTTP/Socket clients with your services, you need to register the root certificate _(Crasivo Root CA)_
-at the host or other container level.
+Thanks to the automated directory mapping declared in the compose files, the freshly minted root certificate can easily be pulled
+straight from the host-mounted volume:
+👉 Host Path: `./docker/volumes/traefik_certs/root/certificate.pem`
 
-Example command to register a certificate in popular UNIX/Linux systems:
+To prevent your operating system, command-line utilities (like curl, wget), and internal application containers from throwing
+annoying security alerts or SSL Handshake errors, register the **Crasivo Root CA** certificate inside your system store:
 
 ```shell
-# Alpine
-$ sudo apk add ca-certificates
-$ sudo cp -f ./docker/layouts/ssl.d/root/certificate.pem /etc/ssl/certs/Crasivo_Root_CA.crt
+# Alpine Linux
+$ sudo apk add ca-certificates$ sudo cp -f ./docker/volumes/traefik_certs/root/certificate.pem /etc/ssl/certs/Crasivo_Root_CA.crt
 $ sudo update-ca-certificates
-# Debian/Ubuntu/Gentoo etc
-$ sudo apt-get install -y ca-certificates
-$ sudo cp -f ./docker/layouts/ssl.d/root/certificate.pem /usr/local/share/ca-certificates/Crasivo_Root_CA.crt
+
+# Debian / Ubuntu
+$ sudo apt-get install -y ca-certificates$ sudo cp -f ./docker/volumes/traefik_certs/root/certificate.pem /usr/local/share/ca-certificates/Crasivo_Root_CA.crt
 $ sudo update-ca-certificates
-# CentOS/Fedora/RHEL etc
-$ sudo yum install ca-certificates
-$ sudo cp -f ./docker/layouts/ssl.d/root/certificate.pem /etc/pki/ca-trust/source/anchors/Crasivo_Root_CA.crt
+
+# CentOS / Fedora / RHEL
+$ sudo yum install ca-certificates$ sudo cp -f ./docker/volumes/traefik_certs/root/certificate.pem /etc/pki/ca-trust/source/anchors/Crasivo_Root_CA.crt
 $ sudo update-ca-trust
 ```
 
-> [!NOTE]
-> The path to the directory where the certificates are located may differ depending on the version of your distribution,
-> therefore, it is recommended to additionally clarify the information on the official website of your OS.
+#### Importing to Browsers and Graphical GUIs:
 
-For other operating systems:
+* **Apple macOS:** Double-click the `certificate.pem` file, add it to the *System* keychain using *Keychain Access*, and change
+  its trust permissions explicitly to *«Always Trust»*.
+* **Microsoft Windows:** Open the certificate file -> Click *«Install Certificate»* -> Select *Local Machine* -> Place the
+  certificate strictly into the *«Trusted Root Certification Authorities»* store.
+* **Browsers (Google Chrome, Firefox, etc.):** Modern, fully-featured browsers often deliberately bypass Linux system-wide CA
+  stores. To secure the highly-coveted "green lock" icon, navigate to your browser's internal security settings, locate the
+  *«Certificates -> Authorities»* tab, and manually import the `certificate.pem` file there.
 
-- Apple MacOS: Control is carried out through [Keychain Access](https://support.apple.com/guide/keychain-access/welcome/mac)
-- Microsoft Windows: Open the `*.pem` certificate file > Click the "Import" button
+Example of automatically baking and trusting your local root CA authority inside a custom `Dockerfile` (Alpine-based) for the
+downstream applications you build:
 
-You can check the correctness of the work through the `curl` command:
-
-```shell
-$ curl -I https://localhost
-# HTTP/2 405
+```dockerfile
+FROM alpine
+# Copy the generated root CA file from the build context
+ADD ./docker/volumes/traefik_certs/root/certificate.pem /etc/ssl/certs/traefik_root_ca.crt
+RUN set -eux \
+    && apk add ca-certificates \
+    && update-ca-certificates
 ```
 
-Some browsers use their own trusted SSL certificate stores,
-i.e. do not take into account system ones (see above).
-For the correct display of the site in the application (green bar), it is recommended
-check and, if necessary, additionally register the root certificate _(Crasivo Root CA)_ through the settings.
+#### Importing to Browsers and Other Operating Systems:
 
-- Google Chrome (Opera/Edge/etc): [chrome://certificate-manager/](chrome://certificate-manager/)
-- Mozilla Firefox: Privacy & Security > Certificates > View Certificates > Import
+* **macOS:** Open *Keychain Access*, drag and drop the root certificate into the System keychain, and toggle its trust settings to
+  *«Always Trust»*.
+* **Windows:** Double-click the `*.pem` file -> Install Certificate -> Place all certificates in the *«Trusted Root Certification
+  Authorities»* store.
+* **Browsers (Chrome/Firefox):** If your browser bypasses system-level anchors, import the certificate manually through the
+  browser security preferences under *«Certificates -> Authorities»*.
 
-Example of registering a root certificate in `Dockerfile` (alpine) of your custom image.
+Example of incorporating the trusted root CA directly into a custom Alpine-based `Dockerfile` layout:
 
 ```dockerfile
 FROM alpine
@@ -114,17 +151,15 @@ RUN set -eux \
     && update-ca-certificates
 ```
 
-### 🌐 DNS
+### 🌐 DNS Mapping
 
-For correct operation with "service" domains such as `*.local` or `*.internal`, you need to configure DNS at the host (machine) level.
-Without this, Traefik will not be able to match the "host-ip" and a 404 error will always be displayed in the browser.
+To reach custom local routing zones (`*.docker`, `*.local`) in your browser, your host machine must know how to properly resolve
+those domains.
 
-> [!TIP]
-> It is recommended to additionally install and configure a local DNS.
-> The most popular solution for Linux is `dnsmasq`.
-
-The easiest option (without third-party DNS) is to edit the system `hosts` file.
-Below is an example of registering mappings between local domains and IP _(127.0.0.1)_.
+1. **Recommended Method (Infrastructure-level):** Set up a lightweight local DNS forwarding server like `dnsmasq` to catch all
+   queries belonging to these top-level domains and route them straight to `127.0.0.1`.
+2. **Simple Method (Manual):** Add explicit static entries directly to your host's system `hosts` file (`/etc/hosts` on Unix
+   systems or `C:\Windows\System32\drivers\etc\hosts` on Windows platforms):
 
 ```text
 127.0.0.1 localhost
@@ -133,13 +168,9 @@ Below is an example of registering mappings between local domains and IP _(127.0
 127.0.0.1 custom.docker
 ```
 
-> [!NOTE]
-> I repeat, this method is NOT the best.
-> This is the easiest solution without installing and configuring additional packages.
-
 ---
 
 ## 📜 License
 
-This project is distributed under the [MIT](https://en.wikipedia.org/wiki/MIT_License) license.
-The full text of the license can be read in the corresponding [file](LICENSE).
+This project is distributed under the terms of the [MIT License](https://en.wikipedia.org/wiki/MIT_License). The complete license
+text is available in the [LICENSE](LICENSE) file located at the root of this repository.
