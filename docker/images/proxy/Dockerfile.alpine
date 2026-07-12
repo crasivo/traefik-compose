@@ -9,38 +9,40 @@
 # Docker Hub:   https://hub.docker.com/r/crasivo/traefik
 # ==============================================================================
 
-# Global scope ARGs to be used across multiple stages
-ARG ALPINE_VERSION=latest
-ARG TRAEFIK_VERSION=latest
+ARG ALPINE_VERSION
 
-# --- Stage 1: Proxy stage to allow variable expansion in COPY --from ---
-FROM docker.io/traefik:$TRAEFIK_VERSION AS source
-
-# --- Stage 2: Base OS runtime setup ---
+# --- Stage 1: Base OS runtime setup ---
 FROM docker.io/alpine:$ALPINE_VERSION AS base
 
+ARG TARGETARCH
 ARG TRAEFIK_GID=1000
 ARG TRAEFIK_UID=1000
+ARG TRAEFIK_VERSION
 
 RUN set -eux \
     # Install minimal runtime dependencies \
     && apk add --no-cache \
         ca-certificates \
+        curl \
         openssl \
         sed \
     # Create system user and group without home directory \
     && addgroup -g ${TRAEFIK_GID} traefik \
     && adduser -D -H -s /bin/sh -G traefik -u ${TRAEFIK_UID} traefik \
+    # Downloading Traefik (from official repo) \
+    && curl -sSL "https://github.com/traefik/traefik/releases/download/v${TRAEFIK_VERSION}/traefik_v${TRAEFIK_VERSION}_linux_${TARGETARCH}.tar.gz" \
+       | tar -xz -C /usr/local/bin/ traefik \
+    && chown traefik:traefik /usr/local/bin/traefik \
+    && chmod +x /usr/local/bin/traefik \
     # Clean package manager cache \
     && rm -rf /var/cache/apk/*
 
-# --- Stage 3: Final assembly ---
+# --- Stage 2: Final assembly (configure service) ---
 FROM base
 
+ARG TARGETARCH
 ARG TRAEFIK_VERSION
 
-# Copy Traefik binary and automated configuration files
-COPY --from=source --chown=traefik:traefik /usr/local/bin/traefik /usr/local/bin/traefik
 COPY --chown=traefik:traefik ./images/proxy/install/ /opt/docker/
 
 ENV TRAEFIK_API_DASHBOARD=true \
@@ -53,10 +55,6 @@ ENV TRAEFIK_API_DASHBOARD=true \
     VIRTUAL_HOST=localhost
 
 RUN set -eux \
-    # Temporarily install libcap to assign network privileges to the binary \
-    && apk add --no-cache --virtual .build-deps libcap \
-    && setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik \
-    && apk del .build-deps \
     # Prepare and configure file permissions for layout paths \
     && mkdir -p /etc/traefik/conf.d /opt/docker/share/openssl \
     && cp -f /opt/docker/etc/traefik/traefik.yml /etc/traefik/traefik.yml \
