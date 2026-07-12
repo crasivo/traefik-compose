@@ -1,0 +1,34 @@
+# ==============================================================================
+# Example:       Secure Web Service Deployment Context via Whoami Backend
+# Description:   Demonstrates how to plug a downstream application proxy container
+#                into the external hardened Traefik routing pipeline infrastructure.
+# ------------------------------------------------------------------------------
+# Prerequisite:  The global dynamic network 'traefik_public' must be initiated.
+# Usage:         docker compose -f docker-compose.whoami.yml up -d
+# ==============================================================================
+
+name: example-whoami
+
+services:
+  whoami:
+    image: docker.io/traefik/whoami:latest
+    container_name: traefik_whoami
+    restart: unless-stopped
+    hostname: whoami
+    networks:
+      public:
+    labels:
+      # Explicitly notify Traefik to look after this container asset
+      - "traefik.enable=true"
+      # Service: Map internal target routing engine to default app port
+      - "traefik.http.services.traefik-whoami.loadBalancer.server.port=80"
+      # Route: Secure HTTPS entrypoint mapping with dynamic host rule expansion
+      - "traefik.http.routers.traefik-whoami.rule=Host(`whoami.${TRAEFIK_PUBLIC_HOST:-traefik.docker}`)"
+      - "traefik.http.routers.traefik-whoami.entryPoints=https"
+      - "traefik.http.routers.traefik-whoami.tls=true"
+      - "traefik.http.routers.traefik-whoami.service=traefik-whoami"
+
+networks:
+  public:
+    external: true
+    name: "${TRAEFIK_PUBLIC_NETWORK:-traefik_public}"

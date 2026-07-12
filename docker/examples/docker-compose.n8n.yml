@@ -1,0 +1,45 @@
+# ==============================================================================
+# Example:       Secure n8n Automation Platform Deployment Context
+# Description:   Demonstrates how to route and secure a workflow automation
+#                n8n backend instance behind the external Traefik proxy layers.
+# ------------------------------------------------------------------------------
+# Prerequisite:  The global dynamic network 'traefik_public' must be initiated.
+# Usage:         docker compose -f docker-compose.yml up -d
+# ==============================================================================
+
+name: example-n8n
+
+services:
+  n8n:
+    image: docker.io/n8nio/n8n:stable
+    restart: unless-stopped
+    environment:
+      - "N8N_HOST=n8n.${TRAEFIK_PUBLIC_HOST:-traefik.docker}"
+      - "N8N_PORT=5678"
+      - "N8N_PROTOCOL=https"
+      - "WEBHOOK_URL=https://n8n.${TRAEFIK_PUBLIC_HOST:-traefik.docker}/"
+      - "GENERIC_TIMEZONE=${TZ:-Europe/Moscow}"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      public:
+    labels:
+      # Explicitly notify Traefik to look after this container asset
+      - "traefik.enable=true"
+      # Service: Map internal target routing engine to default app port
+      - "traefik.http.services.traefik-n8n.loadBalancer.server.port=5678"
+      # Route: Secure HTTPS entrypoint mapping with dynamic host rule expansion
+      - "traefik.http.routers.traefik-n8n.rule=Host(`n8n.${TRAEFIK_PUBLIC_HOST:-traefik.docker}`)"
+      - "traefik.http.routers.traefik-n8n.entryPoints=https"
+      - "traefik.http.routers.traefik-n8n.tls=true"
+      - "traefik.http.routers.traefik-n8n.service=traefik-n8n"
+      # Security: Enforce hardened middleware stack rules processing
+      - "traefik.http.routers.traefik-n8n.middlewares=security-headers@file,gzip-compress@file"
+
+volumes:
+  n8n_data:
+
+networks:
+  public:
+    external: true
+    name: "${TRAEFIK_PUBLIC_NETWORK:-traefik_public}"

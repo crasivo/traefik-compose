@@ -1,0 +1,21 @@
+# ==============================================================================
+# Configuration: Local Git Pre-Commit Hooks Pipeline
+# Description:   Forces absolute formatting baselines, syntax validations, and
+#              hygiene policies locally across developers' workstations before
+#              commits reach remote tracking branches.
+# ==============================================================================
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Strip Trailing Whitespaces
+      - id: end-of-file-fixer
+        name: Fix Missing End-of-File Newlines
+      - id: check-yaml
+        name: Validate YAML Schema Integrity
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        name: Prevent Big Binary Accumulation Layouts
+        args: [--maxkb=500]
