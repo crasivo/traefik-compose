@@ -20,7 +20,8 @@ SERVICE_NAME := traefik
 .PHONY: help _docker_check_volumes _docker_check_yaml _docker_check \
         docker-build docker-up docker-down docker-start docker-stop \
         docker-restart docker-ps docker-logs docker-shell docker-root \
-        tree tree-dump
+        tree tree-dump \
+        git-clean git-sync git-status
 
 # Default command target
 help: ## Display this automated help breakdown panel
@@ -89,6 +90,32 @@ docker-shell: _docker_check_yaml ## Spawn standard unprivileged shell process in
 
 docker-root: _docker_check_yaml ## Spawn escalated root security session inside the proxy container
 	$(COMPOSE_CMD) exec -u root $(SERVICE_NAME) sh
+
+# ----------------------------------------------------------------
+# Git Automation Utilities
+# ----------------------------------------------------------------
+
+git-clean: ## Aggressively prune local branches that do not exist on origin remote
+	echo "Fetching latest remote state and pruning gone tracking references..."
+	git fetch -p
+	echo "Identifying and deleting abandoned local branches..."
+	# Capture explicitly gone branches first
+	git branch -vv | grep ': gone]' | awk '{print $$1}' | xargs -r git branch -D
+	echo "Syncing structural branch list against actual remote tracking trees..."
+	# Dynamic check: loops through all local branches and deletes if missing in origin
+	for branch in $$(git branch | awk '{print $$1}' | grep -E -v "(^\*|master|main)"); do \
+		if ! git show-ref --verify --quiet refs/remotes/origin/$$branch; then \
+			echo "Removing un-tracked or deleted local asset: $$branch"; \
+			git branch -D $$branch; \
+		fi; \
+	done
+
+git-sync: git-clean ## Fetch remote updates and pull current branch changes cleanly
+	echo "Syncing active branch with upstream..."
+	git pull
+
+git-status: ## Display a highly compressed, clean repository status overview
+	git status -s -b
 
 # ----------------------------------------------------------------
 # System Utilities
