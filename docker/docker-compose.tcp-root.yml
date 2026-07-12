@@ -40,10 +40,10 @@ services:
       - ./volumes/traefik_certs:/opt/docker/share/openssl
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_PUBLIC_HOST:-traefik.docker}`)"
-      - "traefik.http.routers.dashboard.entryPoints=https"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`${TRAEFIK_PUBLIC_HOST:-traefik.docker}`)"
+      - "traefik.http.routers.traefik-dashboard.entryPoints=https"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
     healthcheck:
       test: ["CMD", "/usr/local/bin/traefik", "healthcheck", "--ping"]
       interval: 10s
