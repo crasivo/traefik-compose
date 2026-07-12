@@ -121,7 +121,7 @@ jobs:
           build-args: |
             TRAEFIK_VERSION=${{ env.TRAEFIK_VERSION }}
             ALPINE_VERSION=${{ env.ALPINE_VERSION }}
-          tags: ${{ id.meta.outputs.tags }}
-          labels: ${{ id.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
