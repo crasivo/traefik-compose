@@ -107,36 +107,36 @@ extra_hosts:
 
 ---
 
-## 🦫 Working with Podman
+## 🦫 Podman Specifics
 
-If you choose **Podman** as your container engine instead of Docker, interacting with rootless sockets is natively simplified but
-introduces distinct environment quirks.
+If **Podman** is used instead of Docker, the stack can be launched without deeply modifying system units (there is no need to
+configure the host's Systemd), but the nature of the Rootless environment brings its own set of constraints.
 
-### Activating the Podman Socket Service
+### Key Differences from Docker:
 
-Podman operates without a persistent background daemon. To expose an API socket for Traefik, you must activate the user-space
-socket service:
+1. **API Emulation:** Only socket-based configurations (`docker-compose.socket-*.yml`) are supported. The
+   `TRAEFIK_PROVIDERS_DOCKER_ENDPOINT=/var/run/docker.sock` variable remains unchanged, as Podman completely emulates the Docker
+   API.
+2. **Socket Path:** The Podman UNIX socket in Rootless mode is created within the user space. The mounting path in the host's
+   `volumes` changes to:
+   `- /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro`
+3. **SELinux Flags:** When running on RHEL-family distributions, you must add the `:z` or `:Z` flags to the mounted volumes to
+   automatically adjust SELinux security contexts.
 
-```bash
-# Start the socket service in user space (Rootless)
-systemctl --user enable --now podman.socket
+---
 
-# Verify the runtime socket path
-echo $XDG_RUNTIME_DIR/podman/podman.sock
-```
+### 🚨 Critical Limitations (Rootless & SELinux)
 
-### Adjusting `docker-compose.yml` for Podman:
+Deploying Podman in Enterprise systems (AlmaLinux, Rocky Linux, RHEL) out of the box is guaranteed to hit kernel security blocks:
 
-1. Select the `docker-compose.socket-rootless.yml` template.
-2. Point the host volume mount path to your active Podman socket:
-   ```yaml
-   volumes:
-     - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
-   ```
-3. **SELinux Security Contexts:** If you are running on RHEL/Fedora/CentOS, append the `:z` or `:Z` flag to your configuration and
-   socket volume declarations so Podman can automatically adjust SELinux label contexts.
-4. The environment variable `TRAEFIK_PROVIDERS_DOCKER_ENDPOINT=/var/run/docker.sock` remains intact, as Podman fully emulates the
-   Docker API standard.
+* `Permission Denied` errors on files and sockets due to SELinux policies and UID/GID mapping (`subuid/subgid`).
+* Inability for an unprivileged user to bind standard ports `80` and `443`.
+* Automatic shutdown of containers as soon as your SSH session closes.
+
+For a detailed breakdown of these issues, instructions on configuring user-level `systemd` units, opening ports, as well as
+ready-to-use workarounds and their associated security risks, please refer to the dedicated guide:
+
+👉 **[Guide to Configuring Podman + SELinux (Workarounds)](./PODMAN_SELINUX.md)**
 
 ---
 
