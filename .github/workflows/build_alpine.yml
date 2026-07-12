@@ -1,4 +1,4 @@
-name: Build and Publish Traefik Alpine
+name: Build Alpine
 
 on:
   workflow_dispatch:
@@ -45,7 +45,6 @@ jobs:
           INPUT_TRAEFIK="${{ inputs.traefik_version }}"
           if [ "$INPUT_TRAEFIK" = "latest" ] || [ -z "$INPUT_TRAEFIK" ]; then
             echo "ℹ️ Fetching the latest stable Traefik version from official GitHub API..."
-            # Получаем tag_name (например, "v3.1.2") и очищаем от префикса "v"
             LATEST_TAG=$(curl -s https://api.github.com/repos/traefik/traefik/releases/latest | jq -r .tag_name)
             TRAEFIK_VER=$(echo "$LATEST_TAG" | sed 's/^v//')
             IS_LATEST="true"
@@ -54,22 +53,41 @@ jobs:
             IS_LATEST="${{ inputs.is_latest }}"
           fi
 
-          # 2. Обработка версии Alpine (для крона ставим по умолчанию latest)
+          # 2. Обработка версии Alpine через встроенную утилиту skopeo
           INPUT_ALPINE="${{ inputs.alpine_version }}"
-          if [ -z "$INPUT_ALPINE" ]; then
-            ALPINE_VER="latest"
+          if [ "$INPUT_ALPINE" = "latest" ] || [ -z "$INPUT_ALPINE" ]; then
+            echo "ℹ️ Resolving the exact stable Alpine Linux version via skopeo..."
+
+            # Запрашиваем список тегов удаленно, фильтруем только чистые семантические X.Y.Z версии
+            EXACT_ALPINE=$(skopeo list-tags docker://docker.io/library/alpine \
+              | jq -r '.Tags[]' \
+              | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | tail -n 1)
+
+            # Безопасный фолбек, если реджистри вернул пустую строку
+            if [ -z "$EXACT_ALPINE" ] || [ "$EXACT_ALPINE" = "null" ]; then
+              EXACT_ALPINE="3.23"
+            fi
+            ALPINE_VER="$EXACT_ALPINE"
           else
             ALPINE_VER="$INPUT_ALPINE"
           fi
 
+          # 3. Сборка финального результата
+          CURRENT_DATE=$(date +'%Y%m%d')
           echo "✅ Resolved Traefik Version: $TRAEFIK_VER"
           echo "✅ Resolved Alpine Version: $ALPINE_VER"
           echo "✅ Is Latest Release Tag: $IS_LATEST"
+          echo "✅ Build Date Tag: $CURRENT_DATE"
 
           # Экспортируем переменные в env для использования в последующих шагах
-          echo "TRAEFIK_VERSION=$TRAEFIK_VER" >> $GITHUB_ENV
-          echo "ALPINE_VERSION=$ALPINE_VER" >> $GITHUB_ENV
+          echo "TRAEFIK_FULL_VERSION=$TRAEFIK_VER" >> $GITHUB_ENV
+          echo "TRAEFIK_SHORT_VERSION=$(echo "$TRAEFIK_VER" | cut -d'.' -f1-2)" >> $GITHUB_ENV
+          echo "ALPINE_FULL_VERSION=$ALPINE_VER" >> $GITHUB_ENV
+          echo "ALPINE_SHORT_VERSION=$(echo "$ALPINE_VER" | cut -d'.' -f1-2)" >> $GITHUB_ENV
           echo "MARK_AS_LATEST=$IS_LATEST" >> $GITHUB_ENV
+          echo "BUILD_DATE=$CURRENT_DATE" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -78,7 +96,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v5
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -92,14 +110,27 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
-            ${{ env.DOCKERHUB_REPO }}
-            ${{ env.GHCR_REPO }}
+            ${{ env.DOCKERHUB_REPO }},${{ env.GHCR_REPO }}
           tags: |
-            type=raw,value=${{ env.TRAEFIK_VERSION }}-alpine-${{ env.ALPINE_VERSION }}
-            type=raw,value=${{ env.TRAEFIK_VERSION }},enable=${{ env.ALPINE_VERSION == 'latest' }}
+            # Traefik
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }}-alpine${{ env.ALPINE_FULL_VERSION }}
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }}-alpine${{ env.ALPINE_SHORT_VERSION }}
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }}-alpine,enable=${{ inputs.alpine_version == 'latest' }}
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }}-alpine-${{ env.BUILD_DATE }}
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }}-${{ env.BUILD_DATE }}
+            type=raw,value=${{ env.TRAEFIK_FULL_VERSION }},enable=${{ env.MARK_AS_LATEST == 'true' }}
+            # Alpine
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }}-alpine${{ env.ALPINE_FULL_VERSION }}
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }}-alpine${{ env.ALPINE_SHORT_VERSION }}
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }}-alpine,enable=${{ inputs.alpine_version == 'latest' }}
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }}-alpine-${{ env.BUILD_DATE }}
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }}-${{ env.BUILD_DATE }}
+            type=raw,value=${{ env.TRAEFIK_SHORT_VERSION }},enable=${{ env.MARK_AS_LATEST == 'true' }}
+            # Latest & Alpine
+            type=raw,value=alpine,enable=${{ env.MARK_AS_LATEST == 'true' }}
             type=raw,value=latest,enable=${{ env.MARK_AS_LATEST == 'true' }}
           labels: |
             org.opencontainers.image.title=Traefik Hardened Alpine
@@ -108,20 +139,22 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/main/README.md
-            org.opencontainers.image.version=${{ env.TRAEFIK_VERSION }}
+            org.opencontainers.image.version=${{ env.TRAEFIK_FULL_VERSION }}
             org.opencontainers.image.licenses=MIT
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./docker/
-          file: ./images/proxy/Dockerfile.alpine
+          file: ./docker/images/proxy/Dockerfile.alpine
           push: true
-          platforms: linux/amd64#,linux/arm64
+          platforms: linux/amd64,linux/arm64
           build-args: |
-            TRAEFIK_VERSION=${{ env.TRAEFIK_VERSION }}
-            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+            TRAEFIK_VERSION=${{ env.TRAEFIK_FULL_VERSION }}
+            ALPINE_VERSION=${{ env.ALPINE_FULL_VERSION }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -14,10 +14,10 @@ ARG ALPINE_VERSION=latest
 ARG TRAEFIK_VERSION
 
 # --- Stage 1: Proxy stage to allow variable expansion in COPY --from ---
-FROM docker.io/traefik:${TRAEFIK_VERSION} AS source
+FROM docker.io/traefik:$TRAEFIK_VERSION AS source
 
 # --- Stage 2: Base OS runtime setup ---
-FROM docker.io/alpine:${ALPINE_VERSION} AS base
+FROM docker.io/alpine:$ALPINE_VERSION AS base
 
 ARG TRAEFIK_GID=1000
 ARG TRAEFIK_UID=1000

@@ -1,6 +1,17 @@
 🚢 Traefik Compose
 ===
 
+<p align="left">
+  <a href="https://github.com/crasivo/traefik-compose/actions/workflows/build_alpine.yml">
+    <img src="https://github.com/crasivo/traefik-compose/actions/workflows/build_alpine.yml/badge.svg" alt="Build Status">
+  </a>
+  <img src="https://img.shields.io/badge/Traefik-v3.x-blue?logo=traefik" alt="Traefik Version">
+  <a href="https://github.com/crasivo/traefik-compose/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+  </a>
+  <img src="https://img.shields.io/badge/Architecture-Rootless%2FTCP%2FSocket-orange" alt="Architecture">
+</p>
+
 A production-ready, security-hardened [Traefik Proxy](https://traefik.io/traefik) stack tailored for local development and web
 application deployment in Docker and Podman environments.
 
