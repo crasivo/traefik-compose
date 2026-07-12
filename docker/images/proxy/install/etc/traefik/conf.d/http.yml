@@ -1,5 +1,20 @@
+# ==============================================================================
+# Configuration: Dynamic HTTP Middlewares
+# Description:   Global HTTP middleware stack for the hardened Traefik setup.
+#                Includes strict security headers, automatic HTTPS redirection,
+#                rate limiting for DoS mitigation, and global gzip compression.
+# ==============================================================================
+
 http:
   middlewares:
+    # Hardened administrative HTTP Basic Authentication layer
+    basic-auth:
+      basicAuth:
+        realm: "Traefik Protected Area"
+        removeHeader: false
+        usersFile: /etc/traefik/.htpasswd
+
+    # Strict response and request security headers configuration
     security-headers:
       headers:
         customResponseHeaders:
@@ -19,7 +34,23 @@ http:
         stsIncludeSubdomains: true
         stsSeconds: 63072000
         stsPreload: true
+
+    # Global permanent redirection from HTTP to HTTPS
     redirect-to-https:
       redirectScheme:
         scheme: https
         permanent: true
+
+    # Baseline rate limiting policy to mitigate brute-force and DoS vectors
+    rate-limit:
+      rateLimit:
+        average: 50
+        burst: 100
+        period: 1s
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # Automated response payload compression (gZIP) for text-based assets
+    gzip-compress:
+      compress: {}

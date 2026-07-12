@@ -48,6 +48,12 @@ _traefik_copy_configs() {
         echo "ℹ️ Main configuration file missing. Copying to $TARGET_CONF_DIR/traefik.yml"
         cp -f "$SOURCE_CONF_DIR/traefik.yml" "$TARGET_CONF_DIR/traefik.yml"
     fi
+
+    # 4. Check and copy .htpasswd (basic auth)
+    if [ ! -f "$TARGET_CONF_DIR/.htpasswd" ]; then
+        echo "ℹ️ Copying to $TARGET_CONF_DIR/.htpasswd"
+        cp -f "$SOURCE_CONF_DIR/.htpasswd.default" "$TARGET_CONF_DIR/.htpasswd"
+    fi
 }
 
 ##

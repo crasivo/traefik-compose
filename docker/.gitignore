@@ -8,3 +8,11 @@
 # Configs
 docker-compose.yml
 Dockerfile
+
+# Secrets
+*.crt
+*.key
+*.pem
+
+# Apache
+.htpasswd

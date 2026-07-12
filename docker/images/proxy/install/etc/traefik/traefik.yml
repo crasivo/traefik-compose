@@ -1,20 +1,19 @@
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# Production-ready template configuration for Traefik v3.x
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ==============================================================================
+# Configuration: Main Static Traefik Settings (v3.x Template)
+# Description:   Production-ready static infrastructure configuration template
+#                for Traefik proxy daemon. Manages global options, entrypoints,
+#                system logging output, internal telemetry/ping endpoints,
+#                and automated runtime file/docker infrastructure providers.
+# ==============================================================================
 
-# ----------------------------------------------------------------
-# Global
-# ----------------------------------------------------------------
-
+# Global engine settings
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
 
-# ----------------------------------------------------------------
-# Entrypoints
-# ----------------------------------------------------------------
-
+# Traffic entrypoints specification
 entryPoints:
+  # Standard plain HTTP gateway with global automated upgrade redirection rules
   http:
     address: ":80"
     http:
@@ -22,49 +21,48 @@ entryPoints:
         entryPoint:
           to: https
           scheme: https
+  # Secure TLS entrypoint with native HTTP/3 protocol mapping enabled
   https:
     address: ":443"
+    http:
+      tls: {}
     http3: {}
+
+  # Internal management and core telemetry entrypoint path
   traefik:
     address: ":8080"
 
-# ----------------------------------------------------------------
-# API & Dashboard
-# ----------------------------------------------------------------
-
+# Application programming interface (API) and Web UI Dashboard setup
 api:
   dashboard: %TRAEFIK_API_DASHBOARD%
   debug: %TRAEFIK_API_DEBUG%
   insecure: %TRAEFIK_API_INSECURE%
 
+# Core system healthcheck and uptime check responder
 ping:
   entryPoint: traefik
 
-# ----------------------------------------------------------------
-# Logging (Системный журнал)
-# ----------------------------------------------------------------
-
+# System logger configuration metrics mapping
 log:
   filePath: /dev/stdout
   format: "%TRAEFIK_LOG_FORMAT%"
   level: "%TRAEFIK_LOG_LEVEL%"
 
-# ----------------------------------------------------------------
-# Global Transport (Опции для работы со сторонними бэкендами)
-# ----------------------------------------------------------------
-
+# Global backend transport connection parameters
 serversTransport:
+  # Allow secure reverse-proxy routing to downstream targets with custom PKI
   insecureSkipVerify: true
 
-# ----------------------------------------------------------------
-# Providers
-# ----------------------------------------------------------------
-
+# Automated dynamic infrastructure discovery backends configuration
 providers:
   providersThrottleDuration: 10s
+
+  # Local dynamic YAML templates watch directory path
   file:
     directory: /etc/traefik/conf.d
     watch: true
+
+  # Isolated container runtime tracking configuration engine
   docker:
     watch: true
     endpoint: "%TRAEFIK_PROVIDERS_DOCKER_ENDPOINT%"
