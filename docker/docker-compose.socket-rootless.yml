@@ -10,9 +10,6 @@ name: traefik
 
 services:
   traefik:
-    build:
-      context: .
-      dockerfile: images/proxy/Dockerfile.alpine
     image: crasivo/traefik:latest
     container_name: traefik
     restart: always
