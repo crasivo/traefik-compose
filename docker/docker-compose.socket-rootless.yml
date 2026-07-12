@@ -22,7 +22,7 @@ services:
           cpus: 0.5
           memory: 1G
     environment:
-      - "TRAEFIK_PROVIDERS_DOCKER_ENDPOINT=/var/run/docker.sock"
+      - "TRAEFIK_PROVIDERS_DOCKER_ENDPOINT=unix:///var/run/docker.sock"
       - "TRAEFIK_PROVIDERS_DOCKER_NETWORK=${TRAEFIK_PUBLIC_NETWORK:-traefik_public}"
       - "VIRTUAL_HOST=${TRAEFIK_PUBLIC_HOST:-traefik.docker}"
     user: traefik
